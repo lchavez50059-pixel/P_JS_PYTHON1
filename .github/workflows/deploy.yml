@@ -2,53 +2,45 @@ name: Build and Deploy
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - '*'
+    branches: [ main ]
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
-      - name: Install dependencies
+
+      - name: Install JupyterLite stack
         run: |
-          python -m pip install -r requirements.txt
-          
-      - name: Build JupyterLite
+          python -m pip install \
+            jupyterlite-core \
+            jupyterlite-javascript-kernel \
+            jupyter-server \
+            jupyterlab-server
+
+      - name: Build site
         run: |
-          cp README.md content
+          mkdir -p content
+          cp README.md content/
           jupyter lite build --contents content --output-dir dist
-          
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: dist
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      pages: write
-      id-token: write
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v4
